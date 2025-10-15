@@ -11,13 +11,23 @@
 constexpr uint8_t SLEEP_PIN = D16; // GPIO16 HIGH = awake
 
 // STEP & DIR assigments
-constexpr uint8_t NUM_MOTORS = 8;
-static const uint8_t STEP_PINS[NUM_MOTORS] = {D15, D17, D21, D5, D7, D26, D28, D29};
-static const uint8_t DIR_PINS[NUM_MOTORS] = {D14, D18, D20, D4, D6, D27, D12, D13};
+// constexpr uint8_t NUM_MOTORS = 8;
+// static const uint8_t STEP_PINS[NUM_MOTORS] = {D15, D17, D21, D5, D7, D26, D28, D29};
+// static const uint8_t DIR_PINS[NUM_MOTORS] = {D14, D18, D20, D4, D6, D27, D12, D13};
+constexpr uint8_t NUM_MOTORS = 3;
+static const uint8_t STEP_PINS[NUM_MOTORS] = {D15, D17, D21};
+static const uint8_t DIR_PINS[NUM_MOTORS] = {D14, D18, D20};
+// constexpr uint8_t NUM_MOTORS = 2;
+// static const uint8_t STEP_PINS[NUM_MOTORS] = {D15, D17};
+// static const uint8_t DIR_PINS[NUM_MOTORS] = {D14, D18};
 
 // Background task tuning
-constexpr uint8_t ENGINE_TASK_RATE_MS = 1;     // run queue maintenance every 1ms
-constexpr uint8_t FORWARD_PLAN_WINDOW_MS = 60; // keep ~60ms of steps queued
+
+// keep ~60ms of steps queued. NB: this is needed to avoid jitter at 4000Hz speed even with 2 motors
+constexpr uint8_t FORWARD_PLAN_WINDOW_MS = 60;
+// run queue maintenance every 1ms.
+// NB: Reducing task rate doesn't make much difference for 3 or more motors, still jittering at 4000Hz speed
+constexpr uint8_t ENGINE_TASK_RATE_MS = 1;
 
 // Motion parameters
 constexpr uint32_t SPEED_HZ = 4000;  // steps/s
@@ -39,32 +49,9 @@ static inline bool anyRunning()
   return false;
 }
 
-static void enableAllOutputs()
-{
-  for (uint8_t i = 0; i < NUM_MOTORS; i++)
-  {
-    if (steppers[i])
-    {
-      steppers[i]->enableOutputs();
-    }
-
-    delayMicroseconds(2000); // wake the drivers before stepping
-  }
-}
-
-static void disableAllOutputs()
-{
-  for (uint8_t i = 0; i < NUM_MOTORS; i++)
-  {
-    if (steppers[i])
-      steppers[i]->disableOutputs();
-  }
-}
-
-// Queue a move for all motors (non-blocking)
+// Start moving all motors (non-blocking)
 static void startAllMoves(int32_t steps)
 {
-  enableAllOutputs();
   for (uint8_t i = 0; i < NUM_MOTORS; i++)
   {
     if (steppers[i])
@@ -95,12 +82,10 @@ void setup()
 
     Serial.printf("Connected stepper #%u (STEP pin D%u DIR pin: D%u)\n", i, (int)STEP_PINS[i], (int)DIR_PINS[i]);
 
-    steppers[i]->setDirectionPin(DIR_PINS[i]);
+    steppers[i]->setDirectionPin(DIR_PINS[i], /*dirHighCountsUp=*/true, /*dir_change_delay_us=*/200);
     steppers[i]->setEnablePin(SLEEP_PIN, /*low_active_enables_stepper=*/false);
-    steppers[i]->setAutoEnable(false);
-    steppers[i]->setDelayToEnable(2000); // 2 ms to wake
+    steppers[i]->setAutoEnable(true);
     steppers[i]->setForwardPlanningTimeInMs(FORWARD_PLAN_WINDOW_MS);
-    // steppers[i]->setDelayToDisable(0);
 
     steppers[i]->setSpeedInHz(SPEED_HZ);
     steppers[i]->setAcceleration(ACCEL);
@@ -124,7 +109,6 @@ void loop()
   }
   else if (!isPaused && !anyRunning())
   {
-    disableAllOutputs();
     isPaused = true;
     pauseUntilMs = millis() + PAUSE_MS;
     Serial.printf("All motors stopped, pausing for %u ms\n", PAUSE_MS);
