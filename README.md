@@ -6,6 +6,11 @@ PlatformIO sketch for Raspberry Pi Pico (RP2040) showcasing [FastAccelStepper](h
 - Queue tuning via `engine.task_rate(1)` and `setForwardPlanningTimeInMs(60)` keeps the RP2040 PIO FIFOs busy and removes multi-motor jitter
 - Non-blocking loop sweeps +1000/−1000 steps at 4 kHz with a 1 s dwell so you can watch motors alternate direction together
 
+## Limitations / As-Is
+
+- Driving more than 2 motors simultanously jitters (tried with 1000-4000Hz speed). Something to do dig more into.
+- Can't attach more than 4 motors as it is stated in the [Pico section of the FastAccelStepper README](https://github.com/gin66/FastAccelStepper?tab=readme-ov-file#raspberry-pi-picopico-2-1)
+
 ## Build & Upload
 
 ```bash
